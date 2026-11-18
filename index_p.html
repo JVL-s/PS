@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Persona</title>
+  <!-- Cropper.js CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+  <style>
+    * { box-sizing: border-box; font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; }
+    body { background-color: #f8fafc; color: #1e293b; margin: 0; padding: 24px; }
+    .container { max-width: 1000px; margin: 0 auto; }
+
+    /* 헤더 */
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .header h1 { font-size: 26px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.5px; }
+    .header-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    
+    /* 버튼 스타일 */
+    button { cursor: pointer; border: none; border-radius: 8px; font-weight: 600; font-size: 13px; padding: 8px 14px; transition: 0.15s; }
+    .btn-primary { background: #4f46e5; color: white; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-secondary { background: #e2e8f0; color: #334155; }
+    .btn-secondary:hover { background: #cbd5e1; }
+    .btn-dark { background: #0f172a; color: white; }
+    .btn-dark:hover { background: #1e293b; }
+    .btn-danger { background: #fee2e2; color: #dc2626; }
+    .btn-danger:hover { background: #fca5a5; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-success:hover { background: #059669; }
+
+    /* 프로필 카드 그리드 */
+    .profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+    .profile-card { background: white; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; position: relative; transition: transform 0.2s, box-shadow 0.2s; user-select: none; }
+    .profile-card.dragging { opacity: 0.4; border: 2px dashed #4f46e5; }
+    .profile-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.06); }
+    
+    /* 점 세개 드래그 핸들 버튼 */
+    .drag-handle { position: absolute; top: 8px; right: 8px; z-index: 10; background: rgba(15, 23, 42, 0.6); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: grab; font-size: 16px; font-weight: bold; backdrop-filter: blur(4px); transition: background 0.2s; }
+    .drag-handle:hover { background: rgba(15, 23, 42, 0.85); }
+    .drag-handle:active { cursor: grabbing; }
+
+    .card-img-wrapper { width: 100%; height: 220px; background: #e2e8f0; overflow: hidden; position: relative; cursor: pointer; }
+    .card-img { width: 100%; height: 100%; object-fit: cover; }
+    .card-body { padding: 14px; text-align: center; cursor: pointer; }
+    .card-name { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+    .card-meta { display: flex; justify-content: center; gap: 6px; }
+    .badge-gender { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #f1f5f9; color: #64748b; font-weight: 600; }
+
+    /* 모달 */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 100; padding: 20px; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: white; border-radius: 20px; width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+    .modal-header { padding: 18px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
+    .modal-header h2 { margin: 0; font-size: 18px; color: #0f172a; }
+    .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+
+    /* 폼 레이아웃 */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px; }
+    input[type="text"], textarea { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; outline: none; }
+    input:focus, textarea:focus { border-color: #4f46e5; }
+
+    /* 이미지 미리보기 */
+    .profile-img-preview-box { display: flex; align-items: center; gap: 12px; }
+    .preview-thumb { width: 50px; height: 50px; border-radius: 8px; border: 1px solid #cbd5e1; object-fit: cover; background: #f1f5f9; }
+
+    /* 탭 디자인 */
+    .tab-section { margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+    .tab-header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .tab-nav { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; }
+    .tab-btn { padding: 8px 14px; background: #f1f5f9; color: #64748b; border-radius: 8px 8px 0 0; font-size: 12px; cursor: pointer; border: 1px solid #e2e8f0; border-bottom: none; }
+    .tab-btn.active { background: #4f46e5; color: white; border-color: #4f46e5; font-weight: bold; }
+    .tab-btn.album-type { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+    .tab-btn.album-type.active { background: #0284c7; color: white; border-color: #0284c7; }
+    .tab-content { margin-top: 12px; }
+
+    /* 앨범 전용 그리드 & 카드 */
+    .album-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-top: 12px; }
+    .album-item { position: relative; border-radius: 10px; overflow: hidden; height: 130px; border: 1px solid #cbd5e1; }
+    .album-item img { width: 100%; height: 100%; object-fit: cover; }
+    .album-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); opacity: 0; display: flex; align-items: center; justify-content: center; gap: 6px; transition: opacity 0.2s; }
+    .album-item:hover .album-overlay { opacity: 1; }
+    .album-btn { padding: 4px 8px; font-size: 11px; border-radius: 4px; }
+
+    /* 크롭 모달 스타일 */
+    .crop-container { width: 100%; max-height: 400px; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+    .crop-container img { max-width: 100%; }
+
+    /* 토스트 */
+    #toast { position: fixed; top: 20px; right: 20px; background: #0f172a; color: white; padding: 10px 18px; border-radius: 8px; font-size: 13px; display: none; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  </style>
+</head>
+<body>
+
+  <div id="toast"></div>
+
+  <div class="container">
+    
+    <!-- 헤더 -->
+    <div class="header">
+      <h1>Persona</h1>
+      <div class="header-btns">
+        <button class="btn-secondary" onclick="exportDataFile()">💾 백업(내보내기)</button>
+        <label class="btn-success" style="cursor: pointer; display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;">
+          📂 복구(불러오기)
+          <input type="file" accept=".json" onchange="importDataFile(event)" style="display: none;">
+        </label>
+        <button class="btn-primary" onclick="openAddModal()">+ 프로필 추가</button>
+      </div>
+    </div>
+
+    <!-- 프로필 카드 그리드 -->
+    <div class="profile-grid" id="profile-grid"></div>
+  </div>
+
+  <!-- 프로필 추가/수정 모달 -->
+  <div class="modal-overlay" id="profile-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">프로필 상세 / 편집</h2>
+        <button onclick="closeModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:#64748b;">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="p-id">
+        
+        <div class="form-grid">
+          <div class="form-group">
+            <label>캐릭터 이름</label>
+            <input type="text" id="p-name" placeholder="예: 폴라리스">
+          </div>
+          <div class="form-group">
+            <label>성별</label>
+            <input type="text" id="p-gender" placeholder="예: 여성, 남성, 수인">
+          </div>
+          <div class="form-group" style="grid-column: span 2;">
+            <label>프로필 대표 이미지</label>
+            <div class="profile-img-preview-box">
+              <img id="p-thumb" class="preview-thumb" src="https://via.placeholder.com/50?text=No+Img" alt="미리보기">
+              <label class="btn-secondary" style="font-size: 11px; padding: 6px 10px; cursor: pointer;">
+                사진 변경 / 추가
+                <input type="file" id="p-img-file" accept="image/*" onchange="handleProfileImageSelect(event)" style="display: none;">
+              </label>
+              <button type="button" class="btn-secondary" onclick="clearProfileImage()" style="padding: 6px 10px; font-size: 11px;">이미지 제거</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-section">
+          <div class="tab-header-bar">
+            <label style="font-size: 12px; font-weight: 700; color: #475569;">탭 설정</label>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn-secondary" onclick="addTab('album')" style="padding: 3px 8px; font-size: 11px;">+ 앨범 탭 추가</button>
+              <button type="button" class="btn-secondary" onclick="addTab('text')" style="padding: 3px 8px; font-size: 11px;">+ 텍스트 탭 추가</button>
+            </div>
+          </div>
+          <div class="tab-nav" id="tab-nav"></div>
+          
+          <div class="tab-content" id="tab-content"></div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+          <button type="button" class="btn-danger" id="btn-delete-profile" onclick="deleteProfile()">삭제</button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-secondary" onclick="closeModal()">취소</button>
+            <button type="button" class="btn-primary" onclick="saveProfile()">저장하기</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 이미지 크롭 모달 -->
+  <div class="modal-overlay" id="crop-modal" style="z-index: 200;">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2>이미지 자르기</h2>
+        <button onclick="closeCropModal()" style="background:none; border:none; font-size:18px; cursor:pointer;">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="crop-container">
+          <img id="crop-target-img" src="" alt="자르기 대상">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button type="button" class="btn-secondary" onclick="closeCropModal()">취소</button>
+          <button type="button" class="btn-primary" onclick="applyCroppedImage()">자르기 완료</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let profiles = [];
+    let activeProfileId = null;
+    let activeTabIndex = 0;
+    let cropper = null;
+    let tempCroppedBase64 = "";
+    let currentTabs = [];
+
+    function loadData() {
+      const savedProf = localStorage.getItem("persona_profiles");
+      if (savedProf) {
+        try {
+          profiles = JSON.parse(savedProf);
+        } catch (e) {
+          profiles = [];
+        }
+      } else {
+        profiles = [
+          {
+            id: 1,
+            name: "폴라리스",
+            gender: "여성",
+            image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400",
+            tabs: [
+              { 
+                type: "album", 
+                title: "앨범", 
+                images: [
+                  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400"
+                ] 
+              },
+              { type: "text", title: "기본 설정", content: "[성격]\n차분하고 이성적인 안내자 스타일." }
+            ]
+          }
+        ];
+        saveData();
+      }
+    }
+
+    function saveData() {
+      try {
+        localStorage.setItem("persona_profiles", JSON.stringify(profiles));
+      } catch (e) {
+        alert("브라우저 저장 용량이 초과되었습니다. 필요 없는 고용량 이미지나 앨범 사진을 일부 정리해 주세요.");
+      }
+    }
+
+    function exportDataFile() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profiles, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      downloadAnchor.setAttribute("download", `persona_backup_${today}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("백업 파일이 성공적으로 다운로드되었습니다.");
+    }
+
+    function importDataFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importedData = JSON.parse(e.target.result);
+          if (Array.isArray(importedData)) {
+            if (confirm("기존 데이터가 백업 파일의 내용으로 덮어씌워집니다. 계속하시겠습니까?")) {
+              profiles = importedData;
+              saveData();
+              renderProfiles();
+              showToast("데이터가 성공적으로 복구되었습니다!");
+            }
+          } else {
+            alert("올바른 백업 파일 형식이 아닙니다.");
+          }
+        } catch (err) {
+          alert("파일을 읽는 중 오류가 발생했습니다.");
+        }
+        event.target.value = "";
+      };
+      reader.readAsText(file);
+    }
+
+    let dragSrcIndex = null;
+
+    function renderProfiles() {
+      const grid = document.getElementById("profile-grid");
+      if (!profiles || profiles.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; color:#94a3b8; padding:40px;">등록된 프로필이 없습니다. 상단의 [+ 프로필 추가] 버튼을 눌러주세요.</div>`;
+        return;
+      }
+
+      grid.innerHTML = profiles.map((p, index) => {
+        return `
+          <div class="profile-card" 
+               draggable="true" 
+               ondragstart="handleDragStart(event, ${index})" 
+               ondragover="handleDragOver(event)" 
+               ondrop="handleDrop(event, ${index})" 
+               ondragend="handleDragEnd(event)">
+            
+            <div class="drag-handle" title="드래그하여 순서 변경">⋮</div>
+            
+            <div class="card-img-wrapper" onclick="openEditModal(${p.id})">
+              <img class="card-img" src="${p.image || 'https://via.placeholder.com/200?text=No+Image'}" alt="${p.name}">
+            </div>
+            <div class="card-body" onclick="openEditModal(${p.id})">
+              <div class="card-name">${p.name}</div>
+              <div class="card-meta">
+                <span class="badge-gender">${p.gender || '미정'}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function handleDragStart(e, index) {
+      dragSrcIndex = index;
+      e.currentTarget.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+      if (e.preventDefault) e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      return false;
+    }
+
+    function handleDrop(e, targetIndex) {
+      if (e.stopPropagation) e.stopPropagation();
+      if (dragSrcIndex !== null && dragSrcIndex !== targetIndex) {
+        const movedItem = profiles.splice(dragSrcIndex, 1)[0];
+        profiles.splice(targetIndex, 0, movedItem);
+        saveData();
+        renderProfiles();
+        showToast("프로필 순서가 변경되었습니다.");
+      }
+      return false;
+    }
+
+    function handleDragEnd(e) {
+      e.currentTarget.classList.remove('dragging');
+      dragSrcIndex = null;
+    }
+
+    function openAddModal() {
+      activeProfileId = null;
+      document.getElementById("modal-title").innerText = "새 프로필 추가";
+      document.getElementById("p-id").value = "";
+      document.getElementById("p-name").value = "";
+      document.getElementById("p-gender").value = "";
+      document.getElementById("p-thumb").src = "https://via.placeholder.com/50?text=No+Img";
+      tempCroppedBase64 = "";
+      document.getElementById("btn-delete-profile").style.display = "none";
+
+      currentTabs = [
+        { type: "album", title: "앨범", images: [] },
+        { type: "text", title: "기본 내용", content: "" }
+      ];
+      activeTabIndex = 0;
+
+      renderTabs();
+      document.getElementById("profile-modal").classList.add("active");
+    }
+
+    function openEditModal(id) {
+      const prof = profiles.find(p => p.id === id);
+      if (!prof) return;
+
+      activeProfileId = prof.id;
+      document.getElementById("modal-title").innerText = `${prof.name} 상세 / 편집`;
+      document.getElementById("p-id").value = prof.id;
+      document.getElementById("p-name").value = prof.name;
+      document.getElementById("p-gender").value = prof.gender || "";
+      
+      tempCroppedBase64 = prof.image || "";
+      document.getElementById("p-thumb").src = tempCroppedBase64 || "https://via.placeholder.com/50?text=No+Img";
+      document.getElementById("btn-delete-profile").style.display = "block";
+
+      currentTabs = JSON.parse(JSON.stringify(prof.tabs || [
+        { type: "album", title: "앨범", images: [] },
+        { type: "text", title: "기본 내용", content: "" }
+      ]));
+      
+      currentTabs.forEach(t => {
+        if (!t.type) t.type = 'text';
+        if (t.type === 'album' && !t.images) t.images = [];
+      });
+
+      activeTabIndex = 0;
+      renderTabs();
+      document.getElementById("profile-modal").classList.add("active");
+    }
+
+    function closeModal() {
+      document.getElementById("profile-modal").classList.remove("active");
+      activeProfileId = null;
+    }
+
+    function handleProfileImageSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (evt) {
+        openCropModal(evt.target.result);
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
+    }
+
+    function clearProfileImage() {
+      tempCroppedBase64 = "";
+      document.getElementById("p-thumb").src = "https://via.placeholder.com/50?text=No+Img";
+      showToast("대표 이미지가 제거되었습니다.");
+    }
+
+    function openCropModal(imgSrc) {
+      const cropImg = document.getElementById("crop-target-img");
+      cropImg.src = imgSrc;
+      document.getElementById("crop-modal").classList.add("active");
+
+      if (cropper) cropper.destroy();
+      
+      setTimeout(() => {
+        cropper = new Cropper(cropImg, {
+          aspectRatio: 1,
+          viewMode: 1,
+        });
+      }, 100);
+    }
+
+    function closeCropModal() {
+      document.getElementById("crop-modal").classList.remove("active");
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+    }
+
+    function applyCroppedImage() {
+      if (!cropper) return;
+      // 이미지 용량 조절을 위한 압축 해상도 (400x400)
+      const canvas = cropper.getCroppedCanvas({ width: 400, height: 400 });
+      tempCroppedBase64 = canvas.toDataURL("image/jpeg", 0.85);
+      
+      // 대표 프로필 사진 썸네일 즉시 변경
+      document.getElementById("p-thumb").src = tempCroppedBase64;
+
+      // 앨범 탭에도 자동으로 넣어주기
+      const albumTab = currentTabs.find(t => t.type === 'album');
+      if (albumTab) {
+        if (!albumTab.images) albumTab.images = [];
+        albumTab.images.unshift(tempCroppedBase64);
+      }
+
+      closeCropModal();
+      showToast("대표 사진이 변경되었습니다! [저장하기]를 누르면 저장됩니다.");
+    }
+
+    function renderTabs() {
+      const nav = document.getElementById("tab-nav");
+      
+      nav.innerHTML = currentTabs.map((t, idx) => `
+        <button type="button" class="tab-btn ${t.type === 'album' ? 'album-type' : ''} ${idx === activeTabIndex ? 'active' : ''}" onclick="switchTab(${idx})">
+          ${t.title || '새 탭'}
+        </button>
+      `).join("");
+
+      const container = document.getElementById("tab-content");
+      if (currentTabs.length === 0) {
+        container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">탭이 없습니다. 상단에서 탭을 추가해주세요.</div>`;
+        return;
+      }
+
+      const curTab = currentTabs[activeTabIndex];
+
+      if (curTab.type === 'album') {
+        container.innerHTML = `
+          <div style="display: flex; gap: 8px; margin-bottom: 12px; align-items: center;">
+            <input type="text" value="${curTab.title || ''}" placeholder="앨범 탭 이름" style="font-weight: bold; flex: 1;" oninput="updateTabTitle(${activeTabIndex}, this.value)">
+            <label class="btn-primary" style="font-size: 11px; padding: 6px 10px; cursor: pointer;">
+              + 사진 추가
+              <input type="file" accept="image/*" multiple onchange="addPhotosToAlbum(event, ${activeTabIndex})" style="display:none;">
+            </label>
+            <button type="button" class="btn-danger" onclick="deleteTab(${activeTabIndex})" style="padding: 6px 10px; font-size: 11px;">탭 삭제</button>
+          </div>
+          <div class="album-grid">
+            ${(curTab.images || []).map((src, imgIdx) => `
+              <div class="album-item">
+                <img src="${src}" alt="앨범 이미지">
+                <div class="album-overlay">
+                  <button type="button" class="btn-primary album-btn" onclick="downloadAlbumImg('${src}', ${imgIdx})">다운</button>
+                  <button type="button" class="btn-danger album-btn" onclick="deleteAlbumImg(${activeTabIndex}, ${imgIdx})">삭제</button>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <input type="text" value="${curTab.title || ''}" placeholder="탭 이름" style="font-weight: bold; flex: 1;" oninput="updateTabTitle(${activeTabIndex}, this.value)">
+            <button type="button" class="btn-danger" onclick="deleteTab(${activeTabIndex})" style="padding: 4px 8px; font-size: 11px;">탭 삭제</button>
+          </div>
+          <textarea rows="10" placeholder="내용을 자유롭게 작성하세요." oninput="updateTabContent(${activeTabIndex}, this.value)">${curTab.content || ''}</textarea>
+        `;
+      }
+    }
+
+    function switchTab(idx) {
+      activeTabIndex = idx;
+      renderTabs();
+    }
+
+    function addTab(type) {
+      if (type === 'album') {
+        currentTabs.push({ type: 'album', title: '앨범', images: [] });
+      } else {
+        currentTabs.push({ type: 'text', title: `탭 ${currentTabs.length + 1}`, content: "" });
+      }
+      activeTabIndex = currentTabs.length - 1;
+      renderTabs();
+    }
+
+    function updateTabTitle(idx, val) {
+      currentTabs[idx].title = val;
+      const btn = document.querySelectorAll(".tab-btn")[idx];
+      if (btn) btn.innerText = val || '새 탭';
+    }
+
+    function updateTabContent(idx, val) {
+      currentTabs[idx].content = val;
+    }
+
+    function deleteTab(idx) {
+      if (currentTabs.length <= 1) return alert("최소 1개의 탭은 유지되어야 합니다.");
+      currentTabs.splice(idx, 1);
+      activeTabIndex = Math.max(0, activeTabIndex - 1);
+      renderTabs();
+    }
+
+    function addPhotosToAlbum(e, tabIdx) {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+
+      let loadedCount = 0;
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function (evt) {
+          const img = new Image();
+          img.src = evt.target.result;
+          img.onload = function() {
+            // 이미지 압축 캔버스
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            let width = img.width;
+            let height = img.height;
+            const MAX_SIZE = 800; // 앨범용 이미지 최대 해상도 한계
+
+            if (width > height) {
+              if (width > MAX_SIZE) {
+                height *= MAX_SIZE / width;
+                width = MAX_SIZE;
+              }
+            } else {
+              if (height > MAX_SIZE) {
+                width *= MAX_SIZE / height;
+                height = MAX_SIZE;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
+            
+            if (!currentTabs[tabIdx].images) currentTabs[tabIdx].images = [];
+            currentTabs[tabIdx].images.push(compressedBase64);
+
+            loadedCount++;
+            if (loadedCount === files.length) {
+              renderTabs();
+              showToast(`${files.length}장의 사진이 앨범에 안전하게 저장되었습니다.`);
+            }
+          };
+        };
+        reader.readAsDataURL(file);
+      });
+      e.target.value = "";
+    }
+
+    function deleteAlbumImg(tabIdx, imgIdx) {
+      currentTabs[tabIdx].images.splice(imgIdx, 1);
+      renderTabs();
+    }
+
+    function downloadAlbumImg(src, idx) {
+      const a = document.createElement("a");
+      a.href = src;
+      const charName = document.getElementById("p-name").value || "캐릭터";
+      a.download = `${charName}_이미지_${idx + 1}.jpg`;
+      a.click();
+      showToast("이미지가 저장되었습니다.");
+    }
+
+    function saveProfile() {
+      const nameField = document.getElementById("p-name");
+      const genderField = document.getElementById("p-gender");
+      
+      const name = nameField.value.trim();
+      const gender = genderField.value.trim();
+
+      if (!name) {
+        alert("캐릭터 이름을 입력해주세요.");
+        nameField.focus();
+        return;
+      }
+
+      if (activeProfileId !== null && activeProfileId !== "") {
+        // 기존 프로필 수정
+        const index = profiles.findIndex(p => p.id === Number(activeProfileId));
+        if (index !== -1) {
+          profiles[index] = {
+            id: Number(activeProfileId),
+            name: name,
+            gender: gender,
+            image: tempCroppedBase64,
+            tabs: currentTabs
+          };
+          showToast("프로필이 수정되었습니다.");
+        }
+      } else {
+        // 신규 프로필 추가
+        const newProfile = {
+          id: Date.now(),
+          name: name,
+          gender: gender,
+          image: tempCroppedBase64,
+          tabs: currentTabs
+        };
+        profiles.push(newProfile);
+        showToast("새 프로필이 추가되었습니다.");
+      }
+
+      saveData();
+      renderProfiles();
+      closeModal();
+    }
+
+    function deleteProfile() {
+      if (activeProfileId === null || activeProfileId === "") return;
+      if (confirm("이 프로필을 삭제하시겠습니까?")) {
+        profiles = profiles.filter(p => p.id !== Number(activeProfileId));
+        saveData();
+        renderProfiles();
+        closeModal();
+        showToast("프로필이 삭제되었습니다.");
+      }
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.innerText = msg;
+      t.style.display = "block";
+      setTimeout(() => t.style.display = "none", 2500);
+    }
+
+    window.onload = () => {
+      loadData();
+      renderProfiles();
+    };
+  </script>
+</body>
+</html>
